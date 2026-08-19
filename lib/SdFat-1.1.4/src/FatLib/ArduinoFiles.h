@@ -119,9 +119,9 @@ class PrintFile : public FatFile, public Print {
  * \class File
  * \brief Arduino SD.h style File API
  */
-class File : public FatFile, public Stream {
+class SdFatFile : public FatFile, public Stream {
  public:
-  File() {}
+  SdFatFile() {}
   /**  Create a file object and open it in the current working directory.
    *
    * \param[in] path A path with a valid 8.3 DOS name for a file to be opened.
@@ -130,7 +130,7 @@ class File : public FatFile, public Stream {
    * bitwise-inclusive OR of open flags. see
    * FatFile::open(FatFile*, const char*, oflag_t).
    */
-  File(const char* path, oflag_t oflag) {
+  SdFatFile(const char* path, oflag_t oflag) {
     open(path, oflag);
   }
   using FatFile::clearWriteError;
@@ -185,8 +185,8 @@ class File : public FatFile, public Stream {
    * \param[in] oflag open oflag flags.
    * \return a File object.
    */
-  File openNextFile(oflag_t oflag = O_RDONLY) {
-    File tmpFile;
+  SdFatFile openNextFile(oflag_t oflag = O_RDONLY) {
+    SdFatFile tmpFile;
     tmpFile.openNext(this, oflag);
     return tmpFile;
   }

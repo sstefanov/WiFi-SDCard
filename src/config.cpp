@@ -6,10 +6,10 @@
 #include "config.h"
 #include "serial.h"
 #include "sdControl.h"
+#include "ESPWebDAV.h"
 
 int Config::loadSD() {
-  SdFat sdfat;
-
+  
   SERIAL_ECHOLN("Going to load config from INI file");
 
   if(!sdcontrol.canWeTakeBus()) {
@@ -17,14 +17,14 @@ int Config::loadSD() {
     return -1;
   }
   sdcontrol.takeBusControl();
-  
-  if(!sdfat.begin(SD_CS, SPI_FULL_SPEED)) {
+  SdFat sdfat;
+  if(!sdfat.begin(SD_CS, SD_SPI_SPEED)) {
     SERIAL_ECHOLN("Initial SD failed");
     sdcontrol.relinquishBusControl();
     return -2;
   }
 
-  File file = sdfat.open("SETUP.INI", FILE_READ);
+  SdFatFile file = sdfat.open("SETUP.INI", FILE_READ);
   if (!file) {
     SERIAL_ECHOLN("Open INI file failed");
     sdcontrol.relinquishBusControl();
@@ -92,11 +92,26 @@ unsigned char Config::load() {
 
   EEPROM.begin(EEPROM_SIZE);
   uint8_t *p = (uint8_t*)(&data);
-  for (int i = 0; i < sizeof(data); i++)
+  for (size_t i = 0; i < sizeof(data); i++)
   {
     *(p + i) = EEPROM.read(i);
   }
   EEPROM.commit();
+
+  if (data.flag != 1) {
+    data.flag = 0;
+    memset(data.ssid, '\0', sizeof(data.ssid));
+    memset(data.psw, '\0', sizeof(data.psw));
+    data.timezoneMinutes = 0;
+    data.manualEpoch = 0;
+  }
+
+  if (data.timezoneMinutes < -720 || data.timezoneMinutes > 840) {
+    data.timezoneMinutes = 0;
+  }
+  if (data.manualEpoch < 946684800UL || data.manualEpoch > 4102444800UL) {
+    data.manualEpoch = 0;
+  }
 
   if(data.flag) {
     SERIAL_ECHOLN("Going to use the old config to connect the network");
@@ -132,7 +147,7 @@ void Config::save(const char*ssid,const char*password) {
   strncpy(data.ssid, ssid, WIFI_SSID_LEN);
   strncpy(data.psw, password, WIFI_PASSWD_LEN);
   uint8_t *p = (uint8_t*)(&data);
-  for (int i = 0; i < sizeof(data); i++)
+  for (size_t i = 0; i < sizeof(data); i++)
   {
     EEPROM.write(i, *(p + i));
   }
@@ -146,46 +161,66 @@ void Config::save() {
   EEPROM.begin(EEPROM_SIZE);
   data.flag = 1;
   uint8_t *p = (uint8_t*)(&data);
-  for (int i = 0; i < sizeof(data); i++)
+  for (size_t i = 0; i < sizeof(data); i++)
   {
     EEPROM.write(i, *(p + i));
   }
   EEPROM.commit();
 }
 
-// Save to ip address to sdcard
-int Config::save_ip(const char *ip) {
-  SdFat sdfat;
+int16_t Config::timezoneMinutes() const {
+  return data.timezoneMinutes;
+}
 
-  SERIAL_ECHOLN("Going to save config to ip.gcode file");
+void Config::timezoneMinutes(int16_t minutes) {
+  if (minutes < -720) minutes = -720;
+  if (minutes > 840) minutes = 840;
+  data.timezoneMinutes = minutes;
+}
 
-  if(!sdcontrol.canWeTakeBus()) {
-    SERIAL_ECHOLN("Marlin is controling the bus");
-    return -1;
+uint32_t Config::manualEpoch() const {
+  return data.manualEpoch;
+}
+
+void Config::manualEpoch(uint32_t epoch) {
+  if (epoch < 946684800UL || epoch > 4102444800UL) {
+    data.manualEpoch = 0;
+  } else {
+    data.manualEpoch = epoch;
   }
-  sdcontrol.takeBusControl();
-  
-  if(!sdfat.begin(SD_CS, SPI_FULL_SPEED)) {
-    SERIAL_ECHOLN("Initial SD failed");
-    sdcontrol.relinquishBusControl();
-    return -2;
-  }
+}
 
-  // Remove the old file
-  sdfat.remove("ip.gcode");
+void Config::printAllData(const char *title) {
+    SERIAL_ECHOLN("");
+    SERIAL_ECHO("=== ");
+    SERIAL_ECHO(title);
+    SERIAL_ECHOLN(" ===");
 
-  File file = sdfat.open("ip.gcode", FILE_WRITE);
-  if (!file) {
-    SERIAL_ECHOLN("Open ip file failed");
-    sdcontrol.relinquishBusControl();
-    return -3;
-  }
+    // Print SSID and Password as strings
+    SERIAL_ECHO("SSID: ");
+    SERIAL_ECHOLN(data.ssid);
+    SERIAL_ECHO("Password: ");
+    SERIAL_ECHOLN(data.psw);
 
-  // Get SSID and PASSWORD from file
-  char buf[21] = "M117 ";
-  strncat(buf,ip,15);
-  file.write(buf, 21);
-  file.close();
+    // Print the flag
+    SERIAL_ECHO("Flag: ");
+    SERIAL_ECHOLN(data.flag);
+    SERIAL_ECHO("Timezone minutes: ");
+    SERIAL_ECHOLN(data.timezoneMinutes);
+    SERIAL_ECHO("Manual epoch: ");
+    SERIAL_ECHOLN((unsigned long)data.manualEpoch);
+
+    // Print raw bytes
+    SERIAL_ECHOLN("Raw bytes:");
+    uint8_t *p = (uint8_t *)(&data);
+    for (size_t i = 0; i < sizeof(data); i++) {
+        if (i % 16 == 0)
+            SERIAL_ECHOLN(""); // new line every 16 bytes
+        char buf[4];
+        sprintf(buf, "%02X ", p[i]);
+        SERIAL_ECHO(buf);
+    }
+    SERIAL_ECHOLN("");
 }
 
 Config config;

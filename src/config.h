@@ -14,6 +14,8 @@ typedef struct config_type
   unsigned char flag; // Was saved before?
   char ssid[32];
   char psw[64];
+  int16_t timezoneMinutes;
+  uint32_t manualEpoch;
 }CONFIG_TYPE;
 
 class Config	{
@@ -26,8 +28,12 @@ public:
   void password(char* password);
   void save(const char*ssid,const char*password);
   void save();
-  int save_ip(const char *ip);
-
+  // save_ip() function removed - was causing SD card corruption and not needed
+  int16_t timezoneMinutes() const;
+  void timezoneMinutes(int16_t minutes);
+  uint32_t manualEpoch() const;
+  void manualEpoch(uint32_t epoch);
+  void printAllData(const char *title);
 protected:
   CONFIG_TYPE data;
 };

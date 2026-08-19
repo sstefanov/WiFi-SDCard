@@ -488,7 +488,7 @@ fail:
 bool FatFile::openCachedEntry(FatFile* dirFile, uint16_t dirIndex,
                               oflag_t oflag, uint8_t lfnOrd) {
   uint32_t firstCluster;
-  memset(this, 0, sizeof(FatFile));
+  *this = FatFile();
   // location of entry in cache
   m_vol = dirFile->m_vol;
   m_dirIndex = dirIndex;
@@ -665,7 +665,7 @@ bool FatFile::openParent(FatFile* dirFile) {
       goto fail;
     }
   } else {
-    memset(&dotdot, 0, sizeof(FatFile));
+    dotdot = FatFile();
     dotdot.m_attr = FILE_ATTR_SUBDIR;
     dotdot.m_flags = F_READ;
     dotdot.m_vol = dirFile->m_vol;
@@ -694,7 +694,7 @@ bool FatFile::openRoot(FatVolume* vol) {
     DBG_FAIL_MACRO;
     goto fail;
   }
-  memset(this, 0, sizeof(FatFile));
+  *this = FatFile();
 
   m_vol = vol;
   switch (vol->fatType()) {

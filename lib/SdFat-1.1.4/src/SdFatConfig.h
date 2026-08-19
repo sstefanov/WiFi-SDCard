@@ -104,6 +104,7 @@
 #else  // defined(__AVR__)
 #define USE_FCNTL_H 0
 #endif  // defined(__AVR__)
+
 //------------------------------------------------------------------------------
 /**
  * If CHECK_FLASH_PROGRAMMING is zero, overlap of single sector flash

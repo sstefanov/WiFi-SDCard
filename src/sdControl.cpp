@@ -2,20 +2,22 @@
 #include "sdControl.h"
 #include "pins.h"
 
-volatile long SDControl::_spiBlockoutTime = 0;
+volatile unsigned long SDControl::_spiBlockoutTime = 0;
+volatile bool SDControl::_csSenseInterruptFired = false;
 bool SDControl::_weTookBus = false;
+
+void IRAM_ATTR SDControl::onCsSenseFalling() {
+	_csSenseInterruptFired = true;
+}
 
 void SDControl::setup() {
   // ----- GPIO -------
 	// Detect when other master uses SPI bus
-	pinMode(CS_SENSE, INPUT);
-	attachInterrupt(CS_SENSE, []() {
-		if(!_weTookBus)
-			_spiBlockoutTime = millis() + SPI_BLOCKOUT_PERIOD;
-	}, FALLING);
+	pinMode(CS_SENSE, INPUT_PULLUP);
+	attachInterrupt(CS_SENSE, SDControl::onCsSenseFalling, FALLING);
 
-	// wait for other master to assert SPI bus first
-	delay(SPI_BLOCKOUT_PERIOD);
+	// Short startup settle delay to avoid immediate false edges.
+	delay(100);
 }
 
 // ------------------------
@@ -41,8 +43,27 @@ void SDControl::relinquishBusControl()	{
 }
 
 bool SDControl::canWeTakeBus() {
-	if(millis() < _spiBlockoutTime) {
-    return false;
-  }
-  return true;
+	unsigned long now = millis();
+
+	if(_csSenseInterruptFired) {
+		_csSenseInterruptFired = false;
+		// Confirm the pin is actually low before arming; the edge may have
+		// already passed by the time we get here.
+		if(!_weTookBus && digitalRead(CS_SENSE) == LOW) {
+			_spiBlockoutTime = now + SPI_BLOCKOUT_PERIOD;
+		}
+	}
+
+	if(now < _spiBlockoutTime) {
+		return false;
+	}
+
+	// Timer just ended: if CS_SENSE is still asserted, restart it instead of
+	// releasing the bus, giving the printer additional time.
+	if(!_weTookBus && digitalRead(CS_SENSE) == LOW) {
+		_spiBlockoutTime = now + SPI_BLOCKOUT_PERIOD;
+		return false;
+	}
+
+	return true;
 }

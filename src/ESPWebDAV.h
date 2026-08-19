@@ -12,9 +12,11 @@
 #endif
 
 // constants for WebServer
-#define CONTENT_LENGTH_UNKNOWN ((size_t) -1)
-#define CONTENT_LENGTH_NOT_SET ((size_t) -2)
-#define HTTP_MAX_POST_WAIT 		5000 
+#define CONTENT_LENGTH_UNKNOWN -1
+#define CONTENT_LENGTH_NOT_SET -2
+#define HTTP_MAX_POST_WAIT 		30000 
+// cap simultaneously accepted/pending TCP clients (1 active + this many queued)
+#define MAX_PENDING_CLIENTS 	1
 
 enum ResourceType { RESOURCE_NONE, RESOURCE_FILE, RESOURCE_DIR };
 enum DepthType { DEPTH_NONE, DEPTH_CHILD, DEPTH_ALL };
@@ -24,14 +26,17 @@ class ESPWebDAV	{
 public:
 	bool init(int chipSelectPin, SPISettings spiSettings, int serverPort);
   bool initSD(int chipSelectPin, SPISettings spiSettings);
+	bool ensureServer(int serverPort);
   bool startServer();
+	bool isServerReady();
 	bool isClientWaiting();
 	void handleClient(String blank = "");
-	void rejectClient(String rejectMessage);
-	// http methods
-    void handleFileList();
-    void handleFileDownload();
-    void handleStatusPage();
+    void handleHttpClient(String blank = "");
+    void handleWebDAVClient(String blank = "");
+    void rejectClient(String rejectMessage);
+    String readLine();
+    int cardMounted();
+    SdFat& fileSystem() { return sd; }
 
   protected:
 	typedef void (ESPWebDAV::*THandlerFunction)(String);
@@ -49,12 +54,23 @@ public:
 	void sendPropResponse(boolean recursing, FatFile *curFile);
 	void handleGet(ResourceType resource, bool isGet);
 	void handlePut(ResourceType resource);
+	bool uploadFileData(const char* filePath, size_t contentLength);
 	void handleWriteError(String message, FatFile *wFile);
 	void handleDirectoryCreate(ResourceType resource);
 	void handleMove(ResourceType resource);
 	void handleDelete(ResourceType resource);
+    // http methods
+    bool checkCardBusOrReject();
+    void handleHttp(THandlerFunction handler, String message);
+    void handleFileList(String message);
+    void handleFileDownload(String message);
+    void handleFileUpload(String message);
+	void handleFileDelete(String message);
+    void handleStatusPage(String message);
+	void handleCardStatus(String message);
+	void handleSettingsPage(String message);
 
-	// Sections are copied from ESP8266Webserver
+    // Sections are copied from ESP8266Webserver
 	String getMimeType(String path);
 	String urlDecode(const String& text);
 	String urlToUri(String url);
@@ -70,15 +86,16 @@ public:
 	
 	
 	// variables pertaining to current most HTTP request being serviced
-	WiFiServer *server;
+	WiFiServer *server = nullptr;
 	SdFat sd;
 
 	WiFiClient 	client;
 	String 		method;
 	String 		uri;
 	String 		contentLengthHeader;
-	String 		depthHeader;
-	String 		hostHeader;
+    String 		contentTypeHeader;
+    String 		depthHeader;
+    String 		hostHeader;
 	String		destinationHeader;
 
 	String 		_responseHeaders;

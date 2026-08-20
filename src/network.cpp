@@ -109,9 +109,7 @@ bool Network::start() {
   FatFile::dateTimeCallback(sdDateTimeCallback);
 
   SERIAL_ECHOLN("Going to start DAV server");
-  if(startDAVServer() < 0) {
-    SERIAL_ECHOLN("[DAV] start failed, continuing with WiFi only; will retry on demand");
-  }
+  startDAVServer();
 
   wifiConnected = true;
   config.save();
@@ -131,30 +129,7 @@ int Network::startDAVServer() {
     return -1;
   }
 
-  if(!sdcontrol.canWeTakeBus()) {
-    SERIAL_ECHOLN("[DAV] startDAVServer: SPI bus busy");
-    initFailed = true;
-    return -1;
-  }
-  sdcontrol.takeBusControl();
-  
-  // start the SD DAV server
-  if(!dav.init(SD_CS, SD_SPI_SPEED, SERVER_PORT))   {
-      SERIAL_ECHOLN("[DAV] startDAVServer: SD init failed");
-      // indicate error on LED
-      // errorBlink();
-      initFailed = true;
-      sdcontrol.relinquishBusControl();
-      return -1; 
-  }
-  else {
-    initFailed = false;
-    SERIAL_ECHOLN("[DAV] startDAVServer: SD init OK");
-    //blink();
-  }
-  
-  sdcontrol.relinquishBusControl();
-  SERIAL_ECHOLN("FYSETC WebDAV server started");
+  SERIAL_ECHOLN("FYSETC WebDAV server started; SD access is on demand");
   return 0;
 }
 
@@ -184,7 +159,14 @@ bool Network::ready() {
       SERIAL_ECHOLN("[DAV] ready: retry init after previous failure");
         // dav.rejectClient("Failed to initialize SD Card");
         // try again:
-        if (!dav.init(SD_CS, SD_SPI_SPEED, SERVER_PORT)) {
+        if (!sdcontrol.canWeTakeBus()) {
+          SERIAL_ECHOLN("[DAV] ready: printer is using SD card");
+          return false;
+        }
+        sdcontrol.takeBusControl();
+        bool initialized = dav.init(SD_CS, SD_SPI_SPEED, SERVER_PORT);
+        sdcontrol.relinquishBusControl();
+        if (!initialized) {
         SERIAL_ECHOLN("[DAV] ready: retry failed");
             // indicate error on LED
             // errorBlink();
@@ -205,12 +187,6 @@ void Network::handleHttp() {
         return;
 
     if (!dav.isServerReady()) {
-      unsigned long now = millis();
-      if (now - _lastDavRetryTime >= 2000UL) {
-        _lastDavRetryTime = now;
-        SERIAL_ECHOLN("[DAV] handleHttp: server not ready, retrying start");
-        startDAVServer();
-      }
       return;
     }
 
@@ -234,8 +210,11 @@ void Network::handleWebDAV() {
         return; // printer holds the bus
     }
 
-    int mounted = dav.cardMounted();
-    if (mounted == 1) {
+    if (dav.isClientWaiting()) {
+      if (!sdcontrol.canWeTakeBus()) {
+        dav.rejectClient("The printer is using SD card.");
+        return;
+      }
         sdcontrol.takeBusControl();
         dav.handleWebDAVClient();
         sdcontrol.relinquishBusControl();

@@ -10,7 +10,7 @@
 
 class Network {
 public:
-  Network() { initFailed = false; wifiConnecting = true; _lastDavRetryTime = 0; _ntpSynced = false; _timezoneMinutes = 0; }
+  Network() { initFailed = true; wifiConnecting = true; _lastDavRetryTime = 0; _ntpSynced = false; _timezoneMinutes = 0; }
   bool start();
   
   void handleHttp();   // Always active

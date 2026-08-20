@@ -4,6 +4,7 @@
 
 volatile unsigned long SDControl::_spiBlockoutTime = 0;
 volatile bool SDControl::_csSenseInterruptFired = false;
+volatile bool SDControl::_cardAvailable = false;
 bool SDControl::_weTookBus = false;
 
 void IRAM_ATTR SDControl::onCsSenseFalling() {
@@ -43,26 +44,29 @@ void SDControl::relinquishBusControl()	{
 }
 
 bool SDControl::canWeTakeBus() {
+	_csSenseInterruptFired = false;
+
+	if (_weTookBus) {
+		return true;
+	}
+
 	unsigned long now = millis();
+	if (digitalRead(CS_SENSE) == LOW) {
+		// Every printer access starts the quiet-period timer over.
+		_spiBlockoutTime = 0;
+		_cardAvailable = false;
+		return false;
+	}
 
-	if(_csSenseInterruptFired) {
-		_csSenseInterruptFired = false;
-		// Confirm the pin is actually low before arming; the edge may have
-		// already passed by the time we get here.
-		if(!_weTookBus && digitalRead(CS_SENSE) == LOW) {
+	if (!_cardAvailable) {
+		if (_spiBlockoutTime == 0) {
 			_spiBlockoutTime = now + SPI_BLOCKOUT_PERIOD;
+			return false;
 		}
-	}
-
-	if(now < _spiBlockoutTime) {
-		return false;
-	}
-
-	// Timer just ended: if CS_SENSE is still asserted, restart it instead of
-	// releasing the bus, giving the printer additional time.
-	if(!_weTookBus && digitalRead(CS_SENSE) == LOW) {
-		_spiBlockoutTime = now + SPI_BLOCKOUT_PERIOD;
-		return false;
+		if ((long)(now - _spiBlockoutTime) < 0) {
+			return false;
+		}
+		_cardAvailable = true;
 	}
 
 	return true;

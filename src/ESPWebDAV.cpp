@@ -125,8 +125,10 @@ void ESPWebDAV::handleReject(String rejectMessage)	{
 		return;
 	}
 	else
-		// if reached here, means its a 404
-		handleNotFound();
+    {
+        send("503 Service Unavailable", "text/html",
+            "<!DOCTYPE html><html><body><p style='color:red'>&#9888; " + rejectMessage + "</p></body></html>");
+    }
 }
 
 
@@ -218,13 +220,15 @@ void ESPWebDAV::handleWEBDAV(String blank) {
 // ------------------------
     DBG_PRINT("handleWEBDAV");
     if (!network.ready()) {
-        rejectClient("Failed to initialize SD Card");
+        send("503 Service Unavailable", "text/html",
+             "<!DOCTYPE html><html><body><p style='color:red'>&#9888; The printer is using SD card or the SD card is unavailable.</p></body></html>");
         return;
     }
 
         // has other master been using the bus in last few seconds
         if (!sdcontrol.canWeTakeBus()) {
-            rejectClient("Marlin is reading from SD card");
+            send("503 Service Unavailable", "text/html",
+                 "<!DOCTYPE html><html><body><p style='color:red'>&#9888; The printer is using SD card.</p></body></html>");
             return;
         }
         sdcontrol.takeBusControl();

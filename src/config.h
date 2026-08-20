@@ -20,7 +20,6 @@ typedef struct config_type
 
 class Config	{
 public:
-  int loadSD();
 	unsigned char load();
   char* ssid();
   void ssid(char* ssid);

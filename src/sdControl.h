@@ -1,7 +1,7 @@
 #ifndef _SD_CONTROL_H_
 #define _SD_CONTROL_H_
 
-#define SPI_BLOCKOUT_PERIOD	1500UL
+#define SPI_BLOCKOUT_PERIOD	1000UL
 
 class SDControl {
 public:
@@ -15,6 +15,7 @@ private:
   static void IRAM_ATTR onCsSenseFalling();
   static volatile unsigned long _spiBlockoutTime;
   static volatile bool _csSenseInterruptFired;
+  static volatile bool _cardAvailable;
   static bool _weTookBus;
 };
 

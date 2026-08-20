@@ -29,15 +29,10 @@ Use Platformio ;-)
 
 ### Config
 
-First you can see our video [here](https://www.youtube.com/watch?v=2aW-65--NJk). You have two ways to config the module.
+First you can see our video [here](https://www.youtube.com/watch?v=2aW-65--NJk). Configure the module through the serial command interface. WiFi configuration is stored in EEPROM; the firmware never reads configuration from the SD card.
 
 *note: The card should be formatted for Fat16 or Fat32*
 
-#### Option 1: INI file
-
-You can edit the example ```SETUP.INI``` file in ```ini``` folder, change the SSID and PASSWORD value. And then copy ```SETUP.INI``` file to your root SD card. Then insert it to the module.
-
-1. Turn the module option button to ```USB2UART```
 2. Open a COM software in your computer
 3. Connect the module to your computer with USB cable
 4. Open the software COM port
@@ -50,7 +45,7 @@ you can see the module IP and other information.
 
 Insert your sdcard to the module.
 
-1. Turn the module option button to ```USB2UART```
+```raw
 2. Open a COM software in your computer
 3. Connect the module to your computer with USB cable
 4. Open the software COM port
@@ -83,3 +78,5 @@ Cura Slicer - [https://ultimaker.com/en/products/ultimaker-cura-software](https:
 3D Printer LCD and SD Card Interface - [http://reprap.org/wiki/RepRapDiscount_Full_Graphic_Smart_Controller](http://reprap.org/wiki/RepRapDiscount_Full_Graphic_Smart_Controller)
 
 LCD Schematics - [http://reprap.org/mediawiki/images/7/79/LCD_connect_SCHDOC.pdf](http://reprap.org/mediawiki/images/7/79/LCD_connect_SCHDOC.pdf)
+
+```
